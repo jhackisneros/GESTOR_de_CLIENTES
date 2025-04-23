@@ -1,7 +1,8 @@
 from tkinter import *
 from tkinter import ttk, messagebox
 from .database import Clientes
-from .helpers import limpiar_pantalla, dni_valido
+from .helpers import dni_valido
+from . import historial
 
 class CenterMixin:
     def centrar(self):
@@ -16,11 +17,19 @@ class MainWindow(Tk, CenterMixin):
     def __init__(self):
         super().__init__()
         self.title('Gestor de Clientes')
-        self.geometry("600x400")
+        self.geometry("700x500")
         self.centrar()
         self.build()
 
     def build(self):
+        # Campo de búsqueda
+        search_frame = Frame(self)
+        search_frame.pack(pady=(10, 0))
+        Label(search_frame, text="Buscar por nombre o apellido:").pack(side=LEFT)
+        self.search_var = StringVar()
+        self.search_var.trace("w", self.filtrar_clientes)
+        Entry(search_frame, textvariable=self.search_var, width=30).pack(side=LEFT, padx=5)
+
         # Tabla
         self.tree = ttk.Treeview(self, columns=("DNI", "Nombre", "Apellido"), show="headings")
         self.tree.heading("DNI", text="DNI")
@@ -35,15 +44,22 @@ class MainWindow(Tk, CenterMixin):
         Button(frame_botones, text="Añadir Cliente", command=self.abrir_ventana_nuevo).pack(side=LEFT, padx=5)
         Button(frame_botones, text="Modificar Cliente", command=self.modificar_cliente).pack(side=LEFT, padx=5)
         Button(frame_botones, text="Borrar Cliente", command=self.borrar_cliente).pack(side=LEFT, padx=5)
+        Button(frame_botones, text="Ver Historial", command=self.mostrar_historial).pack(side=LEFT, padx=5)
         Button(frame_botones, text="Cerrar", command=self.destroy).pack(side=LEFT, padx=5)
 
         self.cargar_datos()
 
     def cargar_datos(self):
-        for cliente in self.tree.get_children():
-            self.tree.delete(cliente)
+        self.tree.delete(*self.tree.get_children())
         for cliente in Clientes.lista:
             self.tree.insert("", END, values=(cliente.dni, cliente.nombre, cliente.apellido))
+
+    def filtrar_clientes(self, *args):
+        filtro = self.search_var.get().lower()
+        self.tree.delete(*self.tree.get_children())
+        for cliente in Clientes.lista:
+            if filtro in cliente.nombre.lower() or filtro in cliente.apellido.lower():
+                self.tree.insert("", END, values=(cliente.dni, cliente.nombre, cliente.apellido))
 
     def borrar_cliente(self):
         seleccionado = self.tree.selection()
@@ -52,8 +68,10 @@ class MainWindow(Tk, CenterMixin):
             return
         valores = self.tree.item(seleccionado[0])["values"]
         dni = valores[0]
+        cliente = Clientes.buscar(dni)
         confirmacion = messagebox.askyesno("Confirmar", f"¿Seguro que deseas borrar al cliente {dni}?")
         if confirmacion:
+            historial.registrar("borrado", cliente)
             Clientes.borrar(dni)
             self.tree.delete(seleccionado[0])
 
@@ -69,6 +87,19 @@ class MainWindow(Tk, CenterMixin):
         cliente = Clientes.buscar(valores[0])
         if cliente:
             EditClienteWindow(self, cliente)
+
+    def mostrar_historial(self):
+        top = Toplevel(self)
+        top.title("Historial de acciones")
+        top.geometry("500x400")
+        self.centrar()
+        text = Text(top, wrap=WORD)
+        text.pack(expand=True, fill=BOTH, padx=10, pady=10)
+        try:
+            with open("historial.log", "r", encoding="utf-8") as f:
+                text.insert("1.0", f.read())
+        except FileNotFoundError:
+            text.insert("1.0", "No hay historial registrado aún.")
 
 class AddClienteWindow(Toplevel, CenterMixin):
     def __init__(self, parent):
@@ -125,7 +156,8 @@ class AddClienteWindow(Toplevel, CenterMixin):
         if not dni_valido(dni, Clientes.lista):
             return
 
-        Clientes.crear(dni, nombre, apellido)
+        cliente = Clientes.crear(dni, nombre, apellido)
+        historial.registrar("añadido", cliente)
         self.parent.cargar_datos()
         self.destroy()
 
@@ -177,5 +209,6 @@ class EditClienteWindow(Toplevel, CenterMixin):
             return
 
         Clientes.modificar(self.cliente.dni, nombre, apellido)
+        historial.registrar("modificado", self.cliente)
         self.parent.cargar_datos()
         self.destroy()
