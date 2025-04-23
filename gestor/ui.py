@@ -1,8 +1,7 @@
 from tkinter import *
-from tkinter import ttk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 from .database import Clientes
-from .helpers import limpiar_pantalla
+from .helpers import limpiar_pantalla, dni_valido
 
 class CenterMixin:
     def centrar(self):
@@ -33,16 +32,15 @@ class MainWindow(Tk, CenterMixin):
         frame_botones = Frame(self)
         frame_botones.pack(pady=10)
 
-        btn_borrar = Button(frame_botones, text="Borrar Cliente", command=self.borrar_cliente)
-        btn_borrar.pack(side=LEFT, padx=5)
+        Button(frame_botones, text="Añadir Cliente", command=self.abrir_ventana_nuevo).pack(side=LEFT, padx=5)
+        Button(frame_botones, text="Borrar Cliente", command=self.borrar_cliente).pack(side=LEFT, padx=5)
+        Button(frame_botones, text="Cerrar", command=self.destroy).pack(side=LEFT, padx=5)
 
-        btn_cerrar = Button(frame_botones, text="Cerrar", command=self.destroy)
-        btn_cerrar.pack(side=LEFT, padx=5)
-
-        # Cargar datos
         self.cargar_datos()
 
     def cargar_datos(self):
+        for cliente in self.tree.get_children():
+            self.tree.delete(cliente)
         for cliente in Clientes.lista:
             self.tree.insert("", END, values=(cliente.dni, cliente.nombre, cliente.apellido))
 
@@ -51,17 +49,52 @@ class MainWindow(Tk, CenterMixin):
         if not seleccionado:
             messagebox.showwarning("Atención", "Selecciona un cliente para borrar")
             return
-
         valores = self.tree.item(seleccionado[0])["values"]
         dni = valores[0]
-
-        # Confirmación
         confirmacion = messagebox.askyesno("Confirmar", f"¿Seguro que deseas borrar al cliente {dni}?")
-        if not confirmacion:
+        if confirmacion:
+            Clientes.borrar(dni)
+            self.tree.delete(seleccionado[0])
+
+    def abrir_ventana_nuevo(self):
+        AddClienteWindow(self)
+
+class AddClienteWindow(Toplevel, CenterMixin):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Nuevo Cliente")
+        self.geometry("300x200")
+        self.centrar()
+        self.parent = parent
+        self.build()
+
+    def build(self):
+        Label(self, text="DNI (ej: 12A)").pack(pady=(10, 0))
+        self.dni_entry = Entry(self)
+        self.dni_entry.pack()
+
+        Label(self, text="Nombre").pack(pady=(10, 0))
+        self.nombre_entry = Entry(self)
+        self.nombre_entry.pack()
+
+        Label(self, text="Apellido").pack(pady=(10, 0))
+        self.apellido_entry = Entry(self)
+        self.apellido_entry.pack()
+
+        Button(self, text="Añadir", command=self.guardar_cliente).pack(pady=15)
+
+    def guardar_cliente(self):
+        dni = self.dni_entry.get().strip().upper()
+        nombre = self.nombre_entry.get().strip().capitalize()
+        apellido = self.apellido_entry.get().strip().capitalize()
+
+        if not dni or not nombre or not apellido:
+            messagebox.showerror("Error", "Todos los campos son obligatorios.")
             return
 
-        # Eliminar de base de datos y CSV
-        Clientes.borrar(dni)
+        if not dni_valido(dni, Clientes.lista):
+            return
 
-        # Eliminar de la tabla
-        self.tree.delete(seleccionado[0])
+        Clientes.crear(dni, nombre, apellido)
+        self.parent.cargar_datos()
+        self.destroy()
