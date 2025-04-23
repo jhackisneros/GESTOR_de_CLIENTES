@@ -1,8 +1,10 @@
 from tkinter import *
 from tkinter import ttk, messagebox
+import os
 from .database import Clientes
 from .helpers import dni_valido
 from . import historial
+from . import exportador
 
 class CenterMixin:
     def centrar(self):
@@ -17,12 +19,12 @@ class MainWindow(Tk, CenterMixin):
     def __init__(self):
         super().__init__()
         self.title('Gestor de Clientes')
-        self.geometry("700x500")
+        self.geometry("800x500")
         self.centrar()
         self.build()
 
     def build(self):
-        # Campo de búsqueda
+        # Buscador
         search_frame = Frame(self)
         search_frame.pack(pady=(10, 0))
         Label(search_frame, text="Buscar por nombre o apellido:").pack(side=LEFT)
@@ -45,6 +47,8 @@ class MainWindow(Tk, CenterMixin):
         Button(frame_botones, text="Modificar Cliente", command=self.modificar_cliente).pack(side=LEFT, padx=5)
         Button(frame_botones, text="Borrar Cliente", command=self.borrar_cliente).pack(side=LEFT, padx=5)
         Button(frame_botones, text="Ver Historial", command=self.mostrar_historial).pack(side=LEFT, padx=5)
+        Button(frame_botones, text="Exportar a Excel", command=self.exportar_excel).pack(side=LEFT, padx=5)
+        Button(frame_botones, text="Exportar historial a PDF", command=self.exportar_historial_pdf).pack(side=LEFT, padx=5)
         Button(frame_botones, text="Cerrar", command=self.destroy).pack(side=LEFT, padx=5)
 
         self.cargar_datos()
@@ -69,11 +73,12 @@ class MainWindow(Tk, CenterMixin):
         valores = self.tree.item(seleccionado[0])["values"]
         dni = valores[0]
         cliente = Clientes.buscar(dni)
-        confirmacion = messagebox.askyesno("Confirmar", f"¿Seguro que deseas borrar al cliente {dni}?")
-        if confirmacion:
-            historial.registrar("borrado", cliente)
-            Clientes.borrar(dni)
-            self.tree.delete(seleccionado[0])
+        if cliente:
+            confirmacion = messagebox.askyesno("Confirmar", f"¿Seguro que deseas borrar al cliente {dni}?")
+            if confirmacion:
+                historial.registrar("borrado", cliente)
+                Clientes.borrar(dni)
+                self.tree.delete(seleccionado[0])
 
     def abrir_ventana_nuevo(self):
         AddClienteWindow(self)
@@ -100,6 +105,16 @@ class MainWindow(Tk, CenterMixin):
                 text.insert("1.0", f.read())
         except FileNotFoundError:
             text.insert("1.0", "No hay historial registrado aún.")
+
+    def exportar_excel(self):
+        exportador.exportar_a_excel()
+        ruta = os.path.abspath("clientes.xlsx")
+        messagebox.showinfo("Exportación", f"Clientes exportados a Excel.\n\nUbicación:\n{ruta}")
+
+    def exportar_historial_pdf(self):
+        exportador.exportar_historial_pdf()
+        ruta = os.path.abspath("historial.pdf")
+        messagebox.showinfo("Exportación", f"Historial exportado correctamente.\n\nUbicación:\n{ruta}")
 
 class AddClienteWindow(Toplevel, CenterMixin):
     def __init__(self, parent):
