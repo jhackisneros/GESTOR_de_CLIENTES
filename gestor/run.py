@@ -1,6 +1,4 @@
-# gestor/run.py
-
-import menu
+from . import menu
 
 def main():
     menu.iniciar()
