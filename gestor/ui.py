@@ -1,4 +1,6 @@
 from tkinter import *
+from tkinter import ttk
+from .database import Clientes  #  Esto es lo que faltaba
 from .helpers import limpiar_pantalla
 
 class CenterMixin:
@@ -19,8 +21,20 @@ class MainWindow(Tk, CenterMixin):
         self.build()
 
     def build(self):
-        label = Label(self, text="¡Hola desde la GUI!", font=("Arial", 16))
-        label.pack(pady=20)
+        # Tabla
+        self.tree = ttk.Treeview(self, columns=("DNI", "Nombre", "Apellido"), show="headings")
+        self.tree.heading("DNI", text="DNI")
+        self.tree.heading("Nombre", text="Nombre")
+        self.tree.heading("Apellido", text="Apellido")
+        self.tree.pack(expand=True, fill=BOTH, padx=10, pady=10)
 
+        # Cargar datos
+        self.cargar_datos()
+
+        # Botón cerrar
         boton = Button(self, text="Cerrar", command=self.destroy)
-        boton.pack()
+        boton.pack(pady=10)
+
+    def cargar_datos(self):
+        for cliente in Clientes.lista:
+            self.tree.insert("", END, values=(cliente.dni, cliente.nombre, cliente.apellido))
