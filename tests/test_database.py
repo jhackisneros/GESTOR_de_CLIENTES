@@ -1,7 +1,9 @@
 import unittest
 import copy
+import csv
 from gestor import database as db
 from gestor import helpers
+from gestor import config
 
 class TestDatabase(unittest.TestCase):
 
@@ -34,6 +36,23 @@ class TestDatabase(unittest.TestCase):
         self.assertTrue(helpers.dni_valido('00A', db.Clientes.lista))
         self.assertFalse(helpers.dni_valido('F35', db.Clientes.lista))
         self.assertFalse(helpers.dni_valido('48H', db.Clientes.lista))  # ya existe
+
+    def test_escritura_csv(self):
+        # Borrar y modificar para comprobar cambios
+        db.Clientes.borrar('48H')
+        db.Clientes.modificar('28Z', 'Mariana', 'Pérez')
+
+        # Leer del CSV y verificar que los cambios están guardados
+        with open(config.DATABASE_PATH, newline="\n") as fichero:
+            reader = csv.reader(fichero, delimiter=";")
+            filas = list(reader)
+
+        # Debe haber 2 clientes ahora
+        self.assertEqual(len(filas), 2)
+
+        # Buscar si Mariana está en el CSV
+        encontrados = [fila for fila in filas if fila[1] == 'Mariana' and fila[2] == 'Pérez']
+        self.assertTrue(encontrados)
 
 if __name__ == "__main__":
     unittest.main()
